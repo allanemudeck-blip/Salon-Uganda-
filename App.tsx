@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { AppView, Salon, BookingRequest, UserProfile } from './types';
 import { MOCK_SALONS, UGANDAN_CITIES, PLATFORM_INFO } from './constants';
 import { Navigation } from './components/Navigation';
@@ -84,10 +84,12 @@ const App: React.FC = () => {
     setAssistantText('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      const apiKey = process.env.API_KEY || '';
+      const ai = new GoogleGenAI({ apiKey });
       
-      audioContextInRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      audioContextOutRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      audioContextInRef.current = new AudioCtx({ sampleRate: 16000 });
+      audioContextOutRef.current = new AudioCtx({ sampleRate: 24000 });
       
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -97,86 +99,15 @@ const App: React.FC = () => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
           },
-          systemInstruction: `You are Salon Connect Voice Assistant.
-
-Your role:
-- Act as a real human salon receptionist.
-- Respond to users using both VOICE and TEXT naturally.
-- Sound calm, friendly, professional, and confident.
-- Use simple, clear Uganda-friendly English.
-- NEVER say you are an AI or automated system.
-- NEVER mention backend, database, Formspree, or technical processes.
-- Always behave as if the system is live and working.
-
-Core behavior:
-- Listen carefully to what the client says.
-- Respond immediately as if you understood them clearly.
-- Guide the conversation naturally like a phone call.
-- Confirm details gently.
-- Reassure the client that their request has been received.
-
-When a user wants to book an appointment:
-1. Thank the client politely.
-2. Ask for missing details ONLY if not provided:
-   - Service needed
-   - Preferred date
-   - Preferred time
-   - Location
-   - Contact number (if spoken)
-3. Repeat the details back for confirmation.
-4. Tell the client the salon will contact them shortly by phone or WhatsApp.
-5. End with a friendly closing sentence.
-
-Voice response rules:
-- Short sentences.
-- Natural pauses.
-- No robotic or long explanations.
-- One idea per sentence.
-- Friendly conversational tone.
-
-Example conversations:
-
-User (voice): "I want to book hair braiding tomorrow at 3 pm in Mukono"
-Response:
-"Thank you for choosing Salon Connect 😊  
-I have received your request for hair braiding tomorrow at 3 pm in Mukono.  
-Our salon team will contact you shortly to confirm.  
-We look forward to serving you."
-
-User (voice): "I need makeup service"
-Response:
-"Sure 😊  
-May I know your preferred date and location for the makeup service?"
-
-User (voice): "Is my appointment confirmed?"
-Response:
-"Your request has been received successfully.  
-A confirmation call or WhatsApp message will be sent to you shortly.  
-Thank you for choosing Salon Connect."
-
-User (voice): "Hello"
-Response:
-"Hello 😊  
-Welcome to Salon Connect.  
-How can I assist you today?"
-
-Fallback handling:
-- If the user is unclear, politely ask them to repeat.
-- If the request is urgent, advise contacting the salon directly by phone or WhatsApp.
-- Never sound confused or technical.
-
-Always:
-- Be polite.
-- Be reassuring.
-- Be brief.
-- Sound human.`
+          systemInstruction: 'You are Salon Connect Voice Assistant. Act as a human receptionist. Use simple English.'
         },
         callbacks: {
           onopen: () => {
             setIsConnecting(false);
             setIsVoiceActive(true);
-            const source = audioContextInRef.current!.createMediaStreamSource(stream);
-            const scriptProcessor = audioContextInRef.current!.createScriptProcessor(4096, 1, 1);
+            if (!audioContextInRef.current) return;
+            const source = audioContextInRef.current.createMediaStreamSource(stream);
+            const scriptProcessor = audioContextInRef.current.createScriptProcessor(4096, 1, 1);
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const int16 = new Int16Array(inputData.length);
@@ -190,7 +121,7 @@ Always:
               sessionPromise.then(s => s.sendRealtimeInput({ media: pcmBlob }));
             };
             source.connect(scriptProcessor);
-            scriptProcessor.connect(audioContextInRef.current!.destination);
+            scriptProcessor.connect(audioContextInRef.current.destination);
           },
           onmessage: async (message: LiveServerMessage) => {
             if (message.serverContent?.outputTranscription) {
@@ -211,17 +142,15 @@ Always:
               source.onended = () => activeSourcesRef.current.delete(source);
             }
             if (message.serverContent?.interrupted) {
-              activeSourcesRef.current.forEach(s => s.stop());
+              activeSourcesRef.current.forEach(s => {
+                try { s.stop(); } catch (e) {}
+              });
               activeSourcesRef.current.clear();
               nextStartTimeRef.current = 0;
             }
           },
-          onerror: () => {
-            stopVoiceAssistant();
-          },
-          onclose: () => {
-            stopVoiceAssistant();
-          }
+          onerror: () => stopVoiceAssistant(),
+          onclose: () => stopVoiceAssistant()
         }
       });
       sessionRef.current = await sessionPromise;
@@ -243,7 +172,9 @@ Always:
       audioContextOutRef.current.close();
       audioContextOutRef.current = null;
     }
-    activeSourcesRef.current.forEach(s => s.stop());
+    activeSourcesRef.current.forEach(s => {
+      try { s.stop(); } catch (e) {}
+    });
     activeSourcesRef.current.clear();
     setIsVoiceActive(false);
     setIsConnecting(false);
@@ -261,7 +192,7 @@ Always:
     if (!selectedSalon) return;
 
     const newBooking: BookingRequest = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 9),
       salonId: selectedSalon.id,
       salonName: selectedSalon.name,
       service: service,
