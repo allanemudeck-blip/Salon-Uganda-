@@ -1,0 +1,8 @@
+{
+  "name": "Salon Connect Uganda",
+  "description": "A digital platform connecting customers in Uganda with independent salon owners. Discover, compare, and request bookings at salons near you.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
