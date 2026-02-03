@@ -6,7 +6,7 @@ import { Navigation } from './components/Navigation';
 import { SalonCard } from './components/SalonCard';
 import { BookingModal } from './components/BookingModal';
 import { generateStylePreview } from './services/geminiService';
-import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
+import { GoogleGenAI, LiveServerMessage, Modality, Blob } from '@google/genai';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>(AppView.HOME);
@@ -84,10 +84,10 @@ const App: React.FC = () => {
     setAssistantText('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const apiKey = process.env.API_KEY || '';
+      const apiKey = (process.env as any).API_KEY || '';
       const ai = new GoogleGenAI({ apiKey });
       
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
       audioContextInRef.current = new AudioCtx({ sampleRate: 16000 });
       audioContextOutRef.current = new AudioCtx({ sampleRate: 24000 });
       
@@ -99,7 +99,10 @@ const App: React.FC = () => {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
           },
-          systemInstruction: 'You are Salon Connect Voice Assistant. Act as a human receptionist. Use simple English.'
+          systemInstruction: `You are Salon Connect Voice Assistant. Act as a real human salon receptionist in Uganda.
+Sound calm, friendly, professional, and confident. Use simple English. 
+Guide the client through booking hair braiding, makeup, or nails.
+Confirm details and reassure them that the salon will contact them shortly.`
         },
         callbacks: {
           onopen: () => {
@@ -114,7 +117,7 @@ const App: React.FC = () => {
               for (let i = 0; i < inputData.length; i++) {
                 int16[i] = inputData[i] * 32768;
               }
-              const pcmBlob = {
+              const pcmBlob: Blob = {
                 data: encodeToBase64(new Uint8Array(int16.buffer)),
                 mimeType: 'audio/pcm;rate=16000',
               };
@@ -128,7 +131,7 @@ const App: React.FC = () => {
               setAssistantText(prev => prev + message.serverContent!.outputTranscription!.text);
             }
 
-            const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (base64Audio && audioContextOutRef.current) {
               const ctx = audioContextOutRef.current;
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
@@ -320,7 +323,7 @@ const App: React.FC = () => {
             onChange={handleFileChange}
             className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
           />
-          {aiImage && <img src={aiImage} className="mt-2 w-20 h-20 object-cover rounded-lg border" />}
+          {aiImage && <img src={aiImage} className="mt-2 w-20 h-20 object-cover rounded-lg border" alt="preview" />}
         </div>
 
         <div>
@@ -346,7 +349,7 @@ const App: React.FC = () => {
             <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center">
               <span className="mr-2">✨</span> Your Visualization
             </h3>
-            <img src={previewResult} className="w-full aspect-square object-cover rounded-lg mb-4" />
+            <img src={previewResult} className="w-full aspect-square object-cover rounded-lg mb-4" alt="Designed result" />
             <button 
               onClick={() => {
                 const link = document.createElement('a');
