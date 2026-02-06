@@ -445,7 +445,7 @@ Confirm details and reassure them that the salon will contact them shortly.`
             <span className="mr-3 text-xl">💬</span>
             <div>
               <p className="text-[10px] font-bold text-gray-400 uppercase">WhatsApp Support</p>
-              <a href={`https://wa.me/${PLATFORM_INFO.whatsappSupport.replace(/\s+/g, '')}`} className="text-sm text-teal-600 font-semibold">{PLATFORM_INFO.whatsappSupport}</a>
+              <a href={`https://wa.me/${PLATFORM_INFO.whatsappSupport.replace(/\s+/g, '').replace('+', '')}`} className="text-sm text-teal-600 font-semibold">{PLATFORM_INFO.whatsappSupport}</a>
             </div>
           </div>
 
@@ -542,6 +542,7 @@ Confirm details and reassure them that the salon will contact them shortly.`
       {isBookingModalOpen && selectedSalon && (
         <BookingModal 
           salon={selectedSalon} 
+          userProfile={userProfile}
           onClose={() => setIsBookingModalOpen(false)}
           onConfirm={handleConfirmBooking}
         />
